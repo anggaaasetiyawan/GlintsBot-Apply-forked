@@ -30,8 +30,16 @@ export function buildAnswers(questions: OneTapProfileQuestion[], bank: Config["a
   return { answers, missing };
 }
 
+// Questions the Glints API accepts even when unanswered. PAST_JOB_ROLES is
+// flagged REQUIRED by the questions endpoint but the apply endpoint accepts
+// applications without it (verified 2026-09: sending any answer format for it
+// triggers HTTP 500; omitting it applies fine).
+const OPTIONAL_IN_PRACTICE = new Set(["PAST_JOB_ROLES"]);
+
 export function isBlocking(missing: OneTapProfileQuestion[]): boolean {
-  return missing.some((q) => (q.responseRequirement ?? "REQUIRED") === "REQUIRED");
+  return missing.some(
+    (q) => (q.responseRequirement ?? "REQUIRED") === "REQUIRED" && !OPTIONAL_IN_PRACTICE.has(q.name),
+  );
 }
 
 // Auto-pick answers for job screening questions (getJobHiringQuestions.generatedQuestions).
