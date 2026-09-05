@@ -1,5 +1,7 @@
 # GlintsAuto
 
+**🌐 Baca dalam Bahasa Indonesia → [README.id.md](README.id.md)**
+
 Auto-apply bot for Glints. TypeScript, terminal UI, cron + 24/7 modes.
 Talks to the same mobile API the Android app uses.
 
@@ -19,8 +21,25 @@ Talks to the same mobile API the Android app uses.
 - Daily and per-run caps. Random delay between applies.
 - Local history so it doesn't apply to the same job twice — including
   server-side 409 dedupe (handles "you already applied" without burning retries).
+- **Customizable keyword detection** — works for IT _and_ non-IT roles.
+  Auto-detect keywords from profile, or define your own industry tokens.
 
 No browser automation. No Selenium. Just HTTP.
+
+## Quick Start (Non-IT Users)
+
+New here? Follow these steps:
+
+1. **Install Node.js** — download from [nodejs.org](https://nodejs.org/) (LTS version). Just click Next → Next → Finish.
+2. **Open Terminal/Command Prompt** — press `Win + R`, type `cmd`, press Enter.
+3. **Clone this repo** — `git clone https://github.com/anggaaasetiyawan/GlintsBot-Apply-forked.git`
+4. **Enter the folder** — `cd GlintsBot-Apply-forked`
+5. **Install dependencies** — `npm install`
+6. **Setup environment** — copy `.env.example` to `.env`, fill in your Glints email and password.
+7. **Setup config** — copy `config.example.json` to `config.json`, adjust your job preferences.
+8. **Test login** — `npx tsx src/cli.ts me`
+9. **Dry run** — `npx tsx src/cli.ts apply --dry-run`
+10. **Go live** — `npx tsx src/cli.ts apply` or `npx tsx src/cli.ts auto`
 
 ## Setup
 
@@ -84,18 +103,18 @@ config                  print resolved config
     "includeKeywords": ["developer", "engineer"],
     "excludeKeywords": ["sales", "marketing", "intern"],
     "jobTypes": ["FULL_TIME", "CONTRACT"],
-    "minYearsOfExperienceMax": 5
+    "minYearsOfExperienceMax": 5,
   },
   "limits": {
     "maxAppliesPerRun": 20,
     "maxAppliesPerDay": 50,
     "minDelaySeconds": 4,
-    "maxDelaySeconds": 12
+    "maxDelaySeconds": 12,
   },
   "answers": {
     "years_of_relevant_experience_v2": "More than 5 years",
     "skill_set_tools": "Expert",
-    "skill_set_foreign_language_v2": ["Bahasa Indonesia", "English"]
+    "skill_set_foreign_language_v2": ["Bahasa Indonesia", "English"],
   },
   "intro": { "enabled": true },
   "cron": { "schedule": "0 */2 * * *", "timezone": "Asia/Jakarta" },
@@ -104,8 +123,13 @@ config                  print resolved config
     "idleMinutes": 20,
     "refreshKeywordsEvery": 5,
     "autoKeywords": true,
-    "maxConsecutiveErrors": 5
-  }
+    "maxConsecutiveErrors": 5,
+  },
+  "keywordOptions": {
+    "mode": "tech",
+    "customTokens": [],
+    "extraRoleNouns": [],
+  },
 }
 ```
 
@@ -116,16 +140,64 @@ When `auto.autoKeywords` is true, the loop overrides `filters.includeKeywords`
 with terms derived from your work experience titles, skill tags, and job-role
 preferences. Run `glints keywords` to preview the list before turning auto on.
 
+## Keyword Modes (`keywordOptions`)
+
+The bot can auto-detect keywords from your profile. You control what it keeps:
+
+| Mode       | What it does                                         | Best for                                                             |
+| ---------- | ---------------------------------------------------- | -------------------------------------------------------------------- |
+| `"tech"`   | Only IT-related tokens (developer, react, php, aws…) | Programmers, engineers, designers                                    |
+| `"all"`    | Keep ALL meaningful words from your profile          | **Non-IT roles** — accounting, nursing, teaching, admin, sales, etc. |
+| `"custom"` | Only tokens you define + role nouns                  | Full control over your industry                                      |
+
+### Examples
+
+**Non-IT (accountant, admin, general):**
+
+```json
+"keywordOptions": { "mode": "all" }
+```
+
+**Healthcare / Nursing:**
+
+```json
+"keywordOptions": {
+  "mode": "custom",
+  "customTokens": ["nursing", "patient", "clinical", "hospital", "healthcare", "medical"],
+  "extraRoleNouns": ["nurse", "caregiver", "midwife", "pharmacist"]
+}
+```
+
+**Finance / Accounting:**
+
+```json
+"keywordOptions": {
+  "mode": "custom",
+  "customTokens": ["accounting", "audit", "tax", "payroll", "banking", "finance"],
+  "extraRoleNouns": ["accountant", "auditor", "bookkeeper"]
+}
+```
+
+**IT + custom extras:**
+
+```json
+"keywordOptions": {
+  "mode": "tech",
+  "customTokens": ["healthcare", "nursing"],
+  "extraRoleNouns": ["nurse"]
+}
+```
+
 ## 24/7 mode behavior
 
-| Outcome of a run | What happens next |
-|---|---|
-| Daily cap hit | Sleeps until next local midnight (`cron.timezone`), resumes |
-| Per-run cap hit | Sleeps `auto.cooldownMinutes` (default 30) |
-| Feed exhausted / nothing matched | Sleeps `auto.idleMinutes` (default 20) |
-| Normal progress | 2-minute breath, then next run |
-| Run threw an error | Backoff 2 → 4 → 8 → 16 → 32 → 60 min, bail after `maxConsecutiveErrors` |
-| Server returns 409 "already applied" | Recorded as already-applied so it's never retried |
+| Outcome of a run                     | What happens next                                                       |
+| ------------------------------------ | ----------------------------------------------------------------------- |
+| Daily cap hit                        | Sleeps until next local midnight (`cron.timezone`), resumes             |
+| Per-run cap hit                      | Sleeps `auto.cooldownMinutes` (default 30)                              |
+| Feed exhausted / nothing matched     | Sleeps `auto.idleMinutes` (default 20)                                  |
+| Normal progress                      | 2-minute breath, then next run                                          |
+| Run threw an error                   | Backoff 2 → 4 → 8 → 16 → 32 → 60 min, bail after `maxConsecutiveErrors` |
+| Server returns 409 "already applied" | Recorded as already-applied so it's never retried                       |
 
 ## How it works
 

@@ -38,5 +38,10 @@
   "cron": {
     "schedule": "0 */2 * * *",
     "timezone": "Asia/Jakarta"
+  },
+  "keywordOptions": {
+    "mode": "tech",
+    "customTokens": [],
+    "extraRoleNouns": []
   }
 }

@@ -84,7 +84,7 @@ export class AutoLoop {
 
     try {
       const me = await this.client.getMe();
-      const derived = await deriveKeywords(this.client, me);
+      const derived = await deriveKeywords(this.client, me, this.cfg.keywordOptions);
       if (derived.filtered.length) {
         this.cfg = {
           ...this.cfg,

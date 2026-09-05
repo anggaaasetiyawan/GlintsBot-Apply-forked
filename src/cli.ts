@@ -205,13 +205,14 @@ program
   .command("keywords")
   .description("Preview the keywords auto-derived from your profile.")
   .action(async () => {
+    const cfg = loadConfig(program.opts().config as string);
     const c = makeClient();
     const s = ora("Deriving keywords from profile…").start();
     try {
       const me = await c.getMe();
-      const d = await deriveKeywords(c, me);
+      const d = await deriveKeywords(c, me, cfg.keywordOptions);
       persistSession(c);
-      s.succeed(`Derived ${d.filtered.length} keywords (titles=${d.source.titles}, skills=${d.source.skills}, categories=${d.source.categories}, intro=${d.source.intro})`);
+      s.succeed(`Derived ${d.filtered.length} keywords (titles=${d.source.titles}, skills=${d.source.skills}, categories=${d.source.categories}, intro=${d.source.intro}) [mode=${cfg.keywordOptions.mode}]`);
       console.log(d.filtered.join(", "));
     } catch (e) {
       s.fail((e as Error).message);

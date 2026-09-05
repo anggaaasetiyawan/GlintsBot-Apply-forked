@@ -22,7 +22,7 @@ const STOP_WORDS = new Set([
   "lowongan","pengalaman","tahun-tahun",
 ]);
 
-const TECH_TOKENS = new Set([
+const BUILTIN_TECH_TOKENS = new Set([
   "developer","engineer","programmer","pengembang",
   "software","programming",
   "fullstack","full-stack","full","stack",
@@ -54,6 +54,18 @@ const TECH_TOKENS = new Set([
   "product","manager","management","lead","senior","junior","staff","principal",
 ]);
 
+const BUILTIN_ROLE_NOUNS = new Set([
+  "developer","engineer","programmer","pengembang","designer","architect",
+  "analyst","scientist","administrator","admin","specialist","consultant",
+  "lead","manager","head","director","officer","coordinator","supervisor",
+]);
+
+export interface KeywordOptions {
+  mode?: "tech" | "all" | "custom";
+  customTokens?: string[];
+  extraRoleNouns?: string[];
+}
+
 export interface DerivedKeywords {
   raw: string[];
   filtered: string[];
@@ -68,7 +80,14 @@ function tokenize(text: string): string[] {
     .filter(Boolean);
 }
 
-export async function deriveKeywords(client: GlintsClient, me: MeFragment): Promise<DerivedKeywords> {
+export async function deriveKeywords(client: GlintsClient, me: MeFragment, opts?: KeywordOptions): Promise<DerivedKeywords> {
+  const mode = opts?.mode ?? "tech";
+  const customTokens = new Set((opts?.customTokens ?? []).map(t => t.toLowerCase().trim()));
+  const allTechTokens = new Set([...BUILTIN_TECH_TOKENS, ...customTokens]);
+  const allRoleNouns = new Set([
+    ...BUILTIN_ROLE_NOUNS,
+    ...(opts?.extraRoleNouns ?? []).map(t => t.toLowerCase().trim()),
+  ]);
   const tokens = new Map<string, number>(); // token → score
   const bump = (t: string, w: number) => {
     const k = t.toLowerCase().trim();
@@ -122,19 +141,23 @@ export async function deriveKeywords(client: GlintsClient, me: MeFragment): Prom
     for (const t of tokenize(me.intro)) { bump(t, 1); intro++; }
   }
 
-  // Keep ONLY tokens that are recognized tech vocabulary or genuine role
-  // nouns. Anything else (bio prose: "sistem", "membangun", "production",
-  // "hingga", "otomasi") is useless as a job-search filter — too generic and
-  // too noisy.
-  const ROLE_NOUNS = new Set([
-    "developer","engineer","programmer","pengembang","designer","architect",
-    "analyst","scientist","administrator","admin","specialist","consultant",
-    "lead","manager","head","director","officer","coordinator","supervisor",
-  ]);
-
+  // Filter tokens based on the configured keyword mode:
+  //   "tech"   — only TECH_TOKENS + ROLE_NOUNS (default, for IT roles)
+  //   "all"    — keep every meaningful token (for non-IT roles)
+  //   "custom" — only customTokens + ROLE_NOUNS
   const ranked = [...tokens.entries()]
-    .filter(([k]) => TECH_TOKENS.has(k) || ROLE_NOUNS.has(k))
-    .filter(([k]) => k.length >= 2)
+    .filter(([k]) => {
+      if (k.length < 2) return false;
+      switch (mode) {
+        case "all":
+          return allTechTokens.has(k) || allRoleNouns.has(k) || k.length >= 3;
+        case "custom":
+          return customTokens.has(k) || allRoleNouns.has(k);
+        case "tech":
+        default:
+          return allTechTokens.has(k) || allRoleNouns.has(k);
+      }
+    })
     .sort((a, b) => b[1] - a[1]);
 
   const raw = ranked.map(([k]) => k);

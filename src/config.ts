@@ -65,6 +65,18 @@ export interface Config {
     /** Maximum consecutive errors before the loop exits. */
     maxConsecutiveErrors: number;
   };
+  keywordOptions: {
+    /**
+     * "tech" (default) — only keep tokens that match built-in TECH_TOKENS + ROLE_NOUNS.
+     * "all" — keep ALL meaningful tokens from profile (great for non-IT roles).
+     * "custom" — only keep tokens that match customTokens below (plus ROLE_NOUNS).
+     */
+    mode: "tech" | "all" | "custom";
+    /** Extra tokens to ADD to the tech vocabulary (merged with built-in TECH_TOKENS). */
+    customTokens: string[];
+    /** Extra role nouns to ADD to the built-in ROLE_NOUNS set. */
+    extraRoleNouns: string[];
+  };
 }
 
 const DEFAULT: Config = {
@@ -109,6 +121,11 @@ const DEFAULT: Config = {
     autoKeywords: true,
     maxConsecutiveErrors: 5,
   },
+  keywordOptions: {
+    mode: "tech",
+    customTokens: [],
+    extraRoleNouns: [],
+  },
 };
 
 export function loadConfig(path = "config.json"): Config {
@@ -127,6 +144,18 @@ export function loadConfig(path = "config.json"): Config {
     intro: { ...DEFAULT.intro, ...(user.intro ?? {}) },
     cron: { ...DEFAULT.cron, ...(user.cron ?? {}) },
     auto: { ...DEFAULT.auto, ...(user.auto ?? {}) },
+    keywordOptions: {
+      ...DEFAULT.keywordOptions,
+      ...(user.keywordOptions ?? {}),
+      customTokens: [
+        ...(DEFAULT.keywordOptions.customTokens ?? []),
+        ...((user.keywordOptions as any)?.customTokens ?? []),
+      ],
+      extraRoleNouns: [
+        ...(DEFAULT.keywordOptions.extraRoleNouns ?? []),
+        ...((user.keywordOptions as any)?.extraRoleNouns ?? []),
+      ],
+    },
   };
 }
 
