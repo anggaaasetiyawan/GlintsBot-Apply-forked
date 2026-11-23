@@ -2,11 +2,22 @@
 
 **🌐 Read in English → [README.md](README.md)**
 
-Bot auto-apply untuk Glints. TypeScript, terminal UI, cron + mode 24/7.
-Dengan API yang sama yang digunakan aplikasi Android.
+Bot auto-apply untuk **dua platform**: Glints dan Jobstreet. TypeScript, terminal UI,
+cron + mode 24/7. Satu `config.json`, satu CLI.
 
 > Edukasi only. Gunakan di akun sendiri. Jangan disalahgunakan.
 > Gapunya Orang Dalam, punyanya OTAK yang bisa dipake.
+
+## Dua platform, dua cara kerja
+
+|                  | Glints                                                        | Jobstreet                                                                                        |
+| ---------------- | ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| Transport        | **HTTP murni** — API mobile yang sama dengan aplikasi Android | **Puppeteer** — browser sungguhan, profil tersimpan                                              |
+| Login            | Email/password di `.env`                                      | Sekali via `jobstreet login` (headful), sesi di `.glints/jobstreet-profile`                      |
+| Alur apply       | One-tap apply + pesan intro di chat                           | Wizard multi-langkah: `/apply` → `/apply/role-requirements` → `/apply/profile` → `/apply/review` |
+| Jawaban otomatis | Bank jawaban per nama pertanyaan Glints                       | **Diturunkan dari CV Anda** (`answers` + `answers.skills`)                                       |
+| Riwayat          | `.glints/history.json`                                        | `.glints/jobstreet-history.json`                                                                 |
+| Cap harian       | `limits.maxAppliesPerDay`                                     | angka sama, penghitung sendiri                                                                   |
 
 ## Apa yang dilakukan
 
@@ -24,7 +35,21 @@ Dengan API yang sama yang digunakan aplikasi Android.
 - **Deteksi keyword yang dapat dikustomisasi** — bekerja untuk IT _dan_ non-IT.
   Auto-detect keyword dari profil, atau definisikan token industri Anda sendiri.
 
-Tanpa browser automation. Tanpa Selenium. Hanya HTTP.
+Glints tanpa browser automation — tanpa Selenium, hanya HTTP.
+
+**Jobstreet**
+
+- Mencari lowongan per keyword di `id.jobstreet.com` — keyword auto diturunkan dari
+  riwayat apply + `filters.includeKeywords`.
+- Melewati iklan "Daftar / Apply on company website" — hanya kampanye on-site yang di-apply.
+- Menyelesaikan seluruh wizard dan menjawab `/apply/role-requirements` **dari CV Anda**:
+  ekspektasi gaji, lama pengalaman (termasuk pertanyaan per-skill), pendidikan,
+  hak bekerja, relocation, notice period, industri, dan daftar skill wajib.
+- **Menimpa pre-fill basi Jobstreet** saat CV punya jawaban lebih baik — platform ini
+  suka mengisi `Rp 4.5 Jt` dan `1 tahun`. Setiap penimpaan dicatat di log (nilai lama ikut).
+- `--dry-run` sampai ke tombol submit lalu berhenti. Dicatat sebagai `DRY_RUN` dan
+  tidak mengurangi cap harian.
+- `jobstreet status` sinkron dari `my-activity/applied-jobs`.
 
 ---
 
@@ -126,15 +151,52 @@ npx tsx src/cli.ts apply --dry-run
 
 Ini akan mensimulasikan apply TANPA benar-benar apply. Aman untuk test.
 
-### Langkah 8: Jalankan!
+### Langkah 8: Login Jobstreet (sekali saja)
 
 ```cmd
-# Sekali jalan (dengan dashboard keren)
+npx tsx src/cli.ts jobstreet login
+```
+
+Jendela browser terbuka — login manual dengan email/password Jobstreet (plus captcha
+atau 2FA kalau muncul). Sesi tersimpan di `.glints/jobstreet-profile` dan dipakai
+otomatis seterusnya. Cukup **sekali**; setelah itu semuanya headless.
+
+### Langkah 9: Dry Run Jobstreet
+
+```cmd
+npx tsx src/cli.ts jobstreet apply --dry-run
+```
+
+Bot berjalan sampai tombol submit lalu berhenti. Periksa log jawabannya — semuanya
+harus diambil dari CV Anda.
+
+### Langkah 10: Jalankan!
+
+```cmd
+# Glints — sekali jalan (dengan dashboard keren)
 npx tsx src/cli.ts apply
 
-# Mode 24/7 (jalan terus, auto-apply, auto-tidur saat cap tercapai)
+# Glints — mode 24/7
 npx tsx src/cli.ts auto
+
+# Jobstreet — sekali jalan
+npx tsx src/cli.ts jobstreet apply
 ```
+
+### Jalan terus-menerus di server
+
+```bash
+# nohup
+nohup npx tsx src/cli.ts auto --no-tui > .glints/auto.log 2>&1 &
+
+# atau PM2 (auto-restart kalau crash, tetap hidup setelah reboot)
+pm2 start --name glints-auto -- npx tsx src/cli.ts auto --no-tui
+pm2 save && pm2 startup
+```
+
+`ecosystem.config.cjs` bawaan hanya menjalankan **Glints** (`auto --no-tui`). Jobstreet
+tidak terhubung ke `auto`/`cron` — jadwalkan `jobstreet apply` sendiri kalau mau
+otomatis, dan ingat profil browser hanya boleh dipakai satu proses sekaligus.
 
 ---
 
@@ -275,11 +337,17 @@ Saat apply, Glints kadang bertanya (contoh: "Berapa tahun pengalaman Anda?"). Bo
   "years_of_relevant_experience_v2": "More than 5 years",
   "skill_set_tools": "Expert",
   "skill_set_foreign_language_v2": ["Bahasa Indonesia", "English"],
-  "expected_salary_idr": 7000000
+  "expected_salary_idr": 7000000,
+  // Daftar teknologi dari CV Anda — dipakai Jobstreet untuk pertanyaan skill wajib.
+  "skills": ["javascript", "typescript", "node.js", "react", "sql", "docker", "git"]
 }
 ```
 
 Sesuaikan dengan profil Anda. Jika ada pertanyaan yang tidak ada di list, bot akan skip lowongan itu dan log `missing-answers:<nama>`.
+
+Field `answers.skills` adalah daftar teknologi dari CV Anda — Jobstreet memakai ini
+untuk pertanyaan multi-select wajib ("Library/framework back end apa saja yang bisa
+kamu gunakan?") dan hanya akan mencentang nama-nama yang ada di daftar itu.
 
 ---
 
@@ -297,7 +365,15 @@ cron [--once]           jalan sesuai jadwal cron
 history [-n N]          riwayat apply terbaru + cap hari ini
 reset-day               hapus riwayat hari ini (reset cap harian)
 config                  tampilkan config yang aktif
+
+jobstreet login         buka browser, login sekali — sesi di .glints/jobstreet-profile
+jobstreet apply         jalan wizard dan submit lamaran
+jobstreet apply --dry-run   sama, tapi berhenti di tombol submit
+jobstreet status        tabel status + sinkron dari my-activity/applied-jobs
 ```
+
+`jobstreet <action>` hanya menerima `login | apply | status`. `--dry-run` sampai ke
+tombol submit tanpa menekannya. `-c, --config <path>` di root memakai file config lain.
 
 ### Contoh Penggunaan
 
@@ -322,7 +398,111 @@ npx tsx src/cli.ts auto
 
 # Lihat riwayat apply
 npx tsx src/cli.ts history -n 30
+
+# Jobstreet — dry run (berhenti di tombol submit)
+npx tsx src/cli.ts jobstreet apply --dry-run
+
+# Jobstreet — apply sungguhan
+npx tsx src/cli.ts jobstreet apply
+
+# Jobstreet — status + sinkron dari my-activity
+npx tsx src/cli.ts jobstreet status
 ```
+
+---
+
+## 🎯 Konfigurasi Jobstreet
+
+Bot Jobstreet **tidak** ikut `auto`/`cron`. Jalankan manual atau jadwalkan sendiri.
+
+### Cap harian
+
+`limits.maxAppliesPerDay` adalah **satu angka** yang dipatuhi kedua platform. Kalau
+Anda tidak mengisi `jobstreet.limitPerDay`, angkanya ikut dari `limits` — jadi 50
+artinya 50 untuk Glints dan 50 untuk Jobstreet, dengan penghitung masing-masing.
+Kalau ingin membagi satu kuota untuk dua platform, set `jobstreet.limitPerDay` lebih kecil.
+
+Baris yang disalin dari halaman `my-activity` disimpan dengan `counted: false` —
+muncul di `jobstreet status` tapi **tidak pernah** mengurangi cap.
+
+### Blok config
+
+```json
+"jobstreet": {
+  "searchKeywords": ["frontend developer", "web developer"],
+  "location": "jakarta",
+  "limitPerDay": 50,
+  "concurrency": 2,
+  "maxPages": 3,
+  "maxJobsPerKeyword": 40,
+  "dryRun": false,
+  "debugTest": 0,
+  "minDelaySeconds": 3,
+  "maxDelaySeconds": 6,
+  "autoKeywords": true,
+  "refreshKeywordsEvery": 0,
+  "maxAutoKeywords": 12
+}
+```
+
+| Field                                 | Default                                  | Artinya                                                                              |
+| ------------------------------------- | ---------------------------------------- | ------------------------------------------------------------------------------------ |
+| `searchKeywords`                      | `["frontend developer","web developer"]` | Satu pencarian per keyword. Diabaikan kalau `autoKeywords` aktif.                    |
+| `location`                            | `"jakarta"`                              | Slug atau nama kota — `jakarta`, `bontang`, `remote`.                                |
+| `limitPerDay`                         | _(ikut `limits`)_                        | Override opsional. Kosongkan supaya `limits.maxAppliesPerDay` berlaku.               |
+| `concurrency`                         | `2`                                      | Tab paralel untuk buka detail. 2 aman, 3+ berisiko captcha.                          |
+| `maxPages`                            | `3`                                      | Halaman listing per keyword.                                                         |
+| `maxJobsPerKeyword`                   | `40`                                     | Link yang dikumpulkan per keyword.                                                   |
+| `dryRun`                              | `false`                                  | Sama dengan flag `--dry-run`.                                                        |
+| `debugTest`                           | `0`                                      | Kalau > 0, berhenti setelah N apply — untuk smoke test.                              |
+| `minDelaySeconds` / `maxDelaySeconds` | `3` / `6`                                | Rentang jeda antar apply.                                                            |
+| `autoKeywords`                        | `true`                                   | Turunkan keyword dari riwayat + `filters.includeKeywords`.                           |
+| `refreshKeywordsEvery`                | `0`                                      | Turunkan ulang tiap N run. `0` = tiap run. Cache: `.glints/jobstreet-keywords.json`. |
+| `maxAutoKeywords`                     | `12`                                     | Batas atas keyword hasil turunan.                                                    |
+| `locationOverride`                    | —                                        | Lokasi eksplisit, menang atas hasil turunan. Env `JOBSTREET_LOCATION` juga bisa.     |
+
+Urutan penentuan lokasi: `locationOverride` / `JOBSTREET_LOCATION` → hasil turunan dari
+riwayat → `location` di config → `answers.domicile` → `"jakarta"`.
+
+### Jawaban Jobstreet dari CV
+
+`/apply/role-requirements` menanyakan apa pun yang diset HRD, dan Jobstreet mengisi
+sendiri dari profil Anda — sering **salah** (gaji `Rp 4.5 Jt`, pengalaman `1 tahun`).
+Bot menimpa isian itu kalau CV punya jawaban. Semua penimpaan dicatat di log:
+
+```
+A: Berapa gaji bulanan yang kamu inginkan? → Rp 7 Jt (was Rp 4.5 Jt)
+A: Berapa tahun pengalaman kerjamu sebagai programmer? → Lebih dari 5 tahun (was 1 tahun)
+A: Kualifikasi mana yang kamu miliki? → Sarjana (S1) (was Diploma 4)
+```
+
+Yang dipakai dari CV: gaji (`expected_salary_idr`), pengalaman
+(`years_of_relevant_experience_v2`, termasuk pertanyaan per-skill), pendidikan
+(`education_level` — cocok untuk `Sarjana (S1)` maupun `Bachelor's Degree (S1)`),
+hak bekerja, relocation, notice period, availability, domicile, industri, dan
+daftar skill wajib.
+
+Kalau CV Anda tidak punya satu pun opsi yang ditawarkan pada pertanyaan skill wajib,
+bot menjawab jujur (`Tidak satupun`) daripada menebak.
+
+### Keamanan
+
+- `--dry-run` (atau `jobstreet.dryRun: true`) berjalan sampai tombol submit lalu berhenti.
+  Dicatat sebagai `DRY_RUN` dan **tidak** mengurangi cap.
+- `debugTest: 0` berarti tidak ada penghentian dini. Digabung dengan profil yang sudah
+  login, `jobstreet apply` tanpa `--dry-run` akan **benar-benar** mengirim lamaran.
+  Selalu dry-run dulu.
+- Log per lowongan: `OK` terkirim, `DRY` dry-run, `SKIP [alasan]`, `FAIL [alasan]`.
+
+| Alasan             | Artinya                                                                            |
+| ------------------ | ---------------------------------------------------------------------------------- |
+| `ALREADY_APPLIED`  | Sudah ada di riwayat, atau platform bilang begitu.                                 |
+| `EXTERNAL_APPLY`   | "Daftar / Apply on company website" — bukan kampanye on-site. Tidak pernah diklik. |
+| `NO_APPLY_BUTTON`  | Tidak ada tombol apply di halaman detail.                                          |
+| `AUTH_REQUIRED`    | Sesi habis — jalankan `jobstreet login` lagi.                                      |
+| `FLOW_STUCK`       | Wizard tidak mau lanjut.                                                           |
+| `SUBMIT_NOT_FOUND` | Sudah di halaman review tapi tombol submit tidak muncul.                           |
+| `UNCONFIRMED_TEXT` | Terkirim, tapi banner sukses tidak terdeteksi. Cek `jobstreet status`.             |
 
 ---
 
@@ -336,6 +516,8 @@ npx tsx src/cli.ts history -n 30
 | Progress normal                   | Istirahat 2 menit, lalu run berikutnya                                          |
 | Run error                         | Backoff 2 → 4 → 8 → 16 → 32 → 60 menit, berhenti setelah `maxConsecutiveErrors` |
 | Server return 409 "sudah apply"   | Dicatat sebagai already-applied agar tidak di-retry                             |
+
+> Tabel di atas berlaku untuk **Glints** (`auto` / `cron`). Jobstreet jalan manual.
 
 ---
 
@@ -362,7 +544,87 @@ Email atau password salah. Coba login manual di aplikasi Glints dulu untuk verif
 
 ### Bagaimana stop bot?
 
-Tekan `Ctrl + C` di terminal.
+Tekan `Ctrl + C` di terminal. Jika bot Jobstreet sedang jalan, tutup jendela browser
+atau tekan `Ctrl + C` di terminal yang memulainya.
+
+### Jobstreet: "Not logged in. Run 'jobstreet login' first."
+
+Sesi sudah habis atau folder profil terhapus. Jalankan `npx tsx src/cli.ts jobstreet login` lagi.
+
+### Jobstreet: "The browser is already running for …"
+
+Ada proses lama yang masih memegang profil. Bersihkan:
+
+```bash
+pkill -f "jobstreet-profile"
+```
+
+### Jobstreet: "Navigation timeout of 60000 ms exceeded"
+
+Jobstreet sedang lambat atau melempar Anda ke halaman login ulang. Ulangi run; kalau
+hanya terjadi di satu lowongan, iklan itu memang rusak.
+
+### Jobstreet: cap terlihat aneh
+
+`npx tsx src/cli.ts jobstreet status` menampilkan hitungan hari ini yang sebenarnya.
+Baris hasil sinkron dari `my-activity` disimpan dengan `counted: false` jadi tidak
+mengurangi cap.
+
+---
+
+## 🧩 Struktur Kode
+
+```
+src/
+├── client.ts            HTTP client Glints — REST + 2 endpoint GraphQL
+├── queries.ts           operasi GraphQL yang direkam
+├── types.ts             tipe respons
+├── config.ts            config + .env
+├── storage.ts           history + session JSON (batas hari sadar timezone)
+├── filters.ts           aturan filter lowongan
+├── answer-bank.ts       mapping pertanyaan Glints → jawaban
+├── auto-keywords.ts     turunkan includeKeywords dari profil + pengalaman
+├── engine.ts            loop auto-apply Glints
+├── auto.ts              wrapper loop 24/7
+├── tui.ts               terminal UI (alt-screen, diff render)
+├── scheduler.ts         wrapper node-cron
+├── cli.ts               entry commander
+└── jobstreet/
+    ├── browser.ts       launch puppeteer / siapkan page / jitter / sleep
+    ├── types.ts         URL, tipe config, deteksi login, helper navigasi
+    ├── auto-keywords.ts turunkan keyword + lokasi Jobstreet dari riwayat
+    ├── bot.ts           kumpulkan listing, jalankan wizard, mesin jawaban
+    └── index.ts         JobstreetBot — login / runApply / statusTable / syncStatus
+```
+
+**Glints.** Engine bergiliran antar sumber feed, dedupe terhadap riwayat lokal,
+filter, ambil pertanyaan per lowongan, susun jawaban, submit, lalu buka channel chat
+dan kirim intro. Event mengalir lewat EventEmitter — TUI dan logger cron sama-sama
+berlangganan. `auto.ts` membungkus engine dalam loop tanpa akhir dengan jeda pintar,
+menurunkan keyword dari profil secara berkala, dan menangani cap/error supaya proses
+terus jalan tanpa intervensi.
+
+**Jobstreet.** `JobstreetBot` menurunkan rencana pencarian (keyword + lokasi),
+mengumpulkan link lowongan, membuang yang sudah ada di `.glints/jobstreet-history.json`,
+lalu per lowongan: buka halaman detail, lewati iklan external-apply, klik
+`/apply` → `/apply/role-requirements` → `/apply/profile` → `/apply/review`, jawab
+setiap grup yang bisa dijawab (select, grup checkbox, grup radio, teks bebas), dan
+submit kecuali dry-run. Setiap jawaban dicatat; cap diperiksa sebelum **setiap**
+lamaran, bukan hanya di awal.
+
+---
+
+## 🗂️ File State
+
+| Path                              | Isinya                                                            |
+| --------------------------------- | ----------------------------------------------------------------- |
+| `.glints/history.json`            | Riwayat apply Glints                                              |
+| `.glints/jobstreet-history.json`  | Riwayat apply Jobstreet (`counted: false` = baris hasil sinkron)  |
+| `.glints/jobstreet-keywords.json` | Cache keyword/lokasi hasil turunan + counter run                  |
+| `.glints/jobstreet-profile/`      | Profil browser yang **sudah login** — perlakukan seperti password |
+| `.glints/session.json`            | Sesi Glints                                                       |
+
+Semua isi `.glints/` di-`.gitignore` dan tidak ikut ter-commit.
 
 ---
 

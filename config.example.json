@@ -44,5 +44,20 @@
     "mode": "tech",
     "customTokens": [],
     "extraRoleNouns": []
+  },
+  "jobstreet": {
+    "searchKeywords": ["frontend developer", "web developer"],
+    "location": "jakarta",
+    "limitPerDay": 50,
+    "concurrency": 2,
+    "maxPages": 3,
+    "maxJobsPerKeyword": 40,
+    "dryRun": false,
+    "debugTest": 0,
+    "minDelaySeconds": 3,
+    "maxDelaySeconds": 6,
+    "autoKeywords": true,
+    "refreshKeywordsEvery": 0,
+    "maxAutoKeywords": 12
   }
 }
