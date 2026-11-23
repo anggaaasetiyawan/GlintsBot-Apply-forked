@@ -52,6 +52,8 @@ export class Dashboard {
   private inAltScreen = false;
   private resizeHandler: (() => void) | null = null;
   private bannerLines: string[] = [];
+  private stdinRaw = false;
+  private stdinListener: ((buf: Buffer) => void) | null = null;
 
   constructor(opts: { dryRun?: boolean } = {}) {
     this.dryRun = opts.dryRun ?? false;
@@ -84,6 +86,24 @@ export class Dashboard {
     this.inAltScreen = true;
     this.prevFrame = [];
 
+    // Take stdin into raw mode so arrow keys / keystrokes don't echo into the
+    // frame (cooked mode would print ^[[A on every keypress). Keystrokes are
+    // discarded; Ctrl+C still arrives as SIGINT since the process has a handler.
+    if (process.stdin.isTTY && process.stdin.readable) {
+      process.stdin.setRawMode(true);
+      process.stdin.resume();
+      this.stdinRaw = true;
+      // Swallow everything except Ctrl+C; exit-on-q is handled via SIGINT
+      // (terminal sends it on Ctrl+C only in cooked mode, so handle raw here).
+      this.stdinListener = (buf: Buffer) => {
+        // Ctrl+C or 'q' → let the app's SIGINT handler stop the run cleanly.
+        if (buf.length === 1 && (buf[0] === 0x03 || buf[0] === 0x71)) {
+          process.kill(process.pid, "SIGINT");
+        }
+      };
+      process.stdin.on("data", this.stdinListener);
+    }
+
     this.resizeHandler = () => {
       // Wipe so the next render repaints everything fresh.
       this.prevFrame = [];
@@ -105,6 +125,14 @@ export class Dashboard {
     this.timer = null;
     if (this.resizeHandler) process.stdout.off("resize", this.resizeHandler);
     this.resizeHandler = null;
+
+    // Restore stdin before tearing down the screen.
+    if (this.stdinRaw) {
+      if (this.stdinListener) process.stdin.off("data", this.stdinListener);
+      this.stdinListener = null;
+      try { process.stdin.setRawMode(false); } catch { /* not a TTY anymore */ }
+      this.stdinRaw = false;
+    }
 
     // One last render, then leave alt-screen and print a static summary.
     this.dirty = true;

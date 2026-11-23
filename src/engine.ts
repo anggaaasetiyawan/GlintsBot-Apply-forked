@@ -385,6 +385,23 @@ export class Engine extends EventEmitter {
                   });
                   summary.skipped++; bumpReason("already-applied-server");
                   this.emitEvent({ type: "skipped", job, reason: "already-applied-server (409)" });
+                } else if (
+                  e instanceof GlintsApiError && e.status === 429
+                ) {
+                  // Server-side daily application cap
+                  // ({"limitCount":50,"message":"you have reached the daily
+                  // application limit"}). Stop the run for the day instead of
+                  // burning the rest of the feed on guaranteed failures.
+                  const serverLimit =
+                    typeof e.body === "object" && e.body !== null
+                      ? (e.body as { limitCount?: number }).limitCount
+                      : undefined;
+                  this.emitEvent({
+                    type: "limit-reached",
+                    scope: "day",
+                    count: serverLimit ?? this.cfg.limits.maxAppliesPerDay,
+                  });
+                  throw new StopRun("day");
                 } else {
                   const msg = e instanceof GlintsApiError
                     ? `HTTP ${e.status ?? "?"}: ${typeof e.body === "string" ? e.body : JSON.stringify(e.body)}`

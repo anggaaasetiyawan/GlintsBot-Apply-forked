@@ -62,7 +62,7 @@ const DEFAULTS = {
   baseUrl: "https://api.glints.com",
   chatUrl: "https://chat.glints.com",
   clientId: "5e5c566a-5ac6-44e3-b286-3246fbc97bfb",
-  appVersion: "1.112.3",
+  appVersion: "1.119.0",
   appPlatform: "ANDROID" as EAppPlatform,
   osVersion: "9",
   countryCode: "ID",

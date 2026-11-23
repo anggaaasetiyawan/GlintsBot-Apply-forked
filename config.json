@@ -5,9 +5,21 @@
     "pageSize": 10,
     "maxPages": 20,
     "sources": [
-      { "type": "recommend", "pageName": "for_you", "maxPages": 20 },
-      { "type": "recommend", "pageName": "for_you", "recentlyAdded": true, "maxPages": 10 },
-      { "type": "nearby", "maxPages": 10 }
+      {
+        "type": "recommend",
+        "pageName": "for_you",
+        "maxPages": 20
+      },
+      {
+        "type": "recommend",
+        "pageName": "for_you",
+        "recentlyAdded": true,
+        "maxPages": 10
+      },
+      {
+        "type": "nearby",
+        "maxPages": 10
+      }
     ]
   },
   "filters": {
@@ -48,7 +60,7 @@
       "AI Developer",
       "AI Specialist",
       "AI Researcher",
-      "AI Consultant",  
+      "AI Consultant",
       "Full Stack Developer",
       "Backend Developer",
       "Frontend Developer",
@@ -57,33 +69,89 @@
       "Data Engineer",
       "Machine Learning Engineer"
     ],
-    "excludeKeywords": ["sales", "marketing", "intern","host","waiter","waitress","barista","driver","delivery","cleaning","cleaner","cleaning service","cleaning services","cleaning company","cleaning companies","host live","editor","mc","content creator","content writer","content editor","content manager","content strategist","content marketing","content marketing manager","content marketing specialist","content marketing coordinator","content marketing director","content marketing executive","content marketing assistant","content marketing consultant","content marketing analyst","content marketing copywriter","content marketing designer","content marketing developer","content marketing producer","content marketing researcher","content marketing social media manager"],
-    "jobTypes": ["FULL_TIME", "CONTRACT"],
-    "workArrangements": ["REMOTE", "HYBRID", "ONSITE"],
+    "excludeKeywords": [
+      "sales",
+      "marketing",
+      "intern",
+      "host",
+      "waiter",
+      "waitress",
+      "barista",
+      "driver",
+      "delivery",
+      "cleaning",
+      "cleaner",
+      "cleaning service",
+      "cleaning services",
+      "cleaning company",
+      "cleaning companies",
+      "host live",
+      "editor",
+      "mc",
+      "content creator",
+      "content writer",
+      "content editor",
+      "content manager",
+      "content strategist",
+      "content marketing",
+      "content marketing manager",
+      "content marketing specialist",
+      "content marketing coordinator",
+      "content marketing director",
+      "content marketing executive",
+      "content marketing assistant",
+      "content marketing consultant",
+      "content marketing analyst",
+      "content marketing copywriter",
+      "content marketing designer",
+      "content marketing developer",
+      "content marketing producer",
+      "content marketing researcher",
+      "content marketing social media manager"
+    ],
+    "jobTypes": [
+      "FULL_TIME",
+      "CONTRACT"
+    ],
+    "workArrangements": [
+      "REMOTE",
+      "HYBRID",
+      "ONSITE"
+    ],
     "minYearsOfExperienceMax": 5,
     "remoteOnly": false,
     "skipApplied": true,
     "skipFraudFlagged": true
   },
   "limits": {
-    "maxAppliesPerRun": 50,
-    "maxAppliesPerDay": 1000,
+    "maxAppliesPerRun": 500,
+    "maxAppliesPerDay": 50,
     "minDelaySeconds": 5,
     "maxDelaySeconds": 15
   },
- "answers": {
+  "answers": {
     "years_of_relevant_experience": "More than 5 years",
     "years_of_relevant_experience_v2": "More than 5 years",
     "skill_set_tools": "Expert",
     "skill_set_tools_v2": "Expert",
-    "skill_set_foreign_language": ["Bahasa Indonesia", "English"],
-    "skill_set_foreign_language_v2": ["Bahasa Indonesia", "English"],
+    "skill_set_foreign_language": [
+      "Bahasa Indonesia",
+      "English"
+    ],
+    "skill_set_foreign_language_v2": [
+      "Bahasa Indonesia",
+      "English"
+    ],
     "expected_salary_idr": 7000000,
     "expected_salary_v2": 7000000,
     "current_salary_idr": 6000000,
     "notice_period": "Immediately available",
     "availability": "Immediately",
-    "work_arrangement_preference": ["Remote", "Hybrid", "On-site"],
+    "work_arrangement_preference": [
+      "Remote",
+      "Hybrid",
+      "On-site"
+    ],
     "current_location": "Indonesia",
     "domicile": "Bontang, Indonesia",
     "willing_to_relocate": "Yes",
@@ -92,7 +160,29 @@
     "portfolio_url": "https://github.com/anggaaasetiyawan",
     "education_level": "Bachelor's Degree (S1)",
     "gender": "Male",
-    "date_of_birth": "11/01/2001"
+    "date_of_birth": "11/01/2001",
+    "skills": [
+      "PHP",
+      "Laravel",
+      "JavaScript",
+      "TypeScript",
+      "Node.js",
+      "Python",
+      "Java",
+      "MySQL",
+      "Docker",
+      "Kubernetes",
+      "Elasticsearch",
+      "Google Cloud",
+      "Android",
+      "Flutter",
+      "HTML",
+      "CSS",
+      "REST API",
+      "Git",
+      "Linux",
+      "DevOps"
+    ]
   },
   "intro": {
     "enabled": true
@@ -101,9 +191,21 @@
     "schedule": "0 */2 * * *",
     "timezone": "Asia/Jakarta"
   },
-    "keywordOptions": {
+  "keywordOptions": {
     "mode": "tech",
     "customTokens": [],
     "extraRoleNouns": []
+  },
+  "jobstreet": {
+    "searchKeywords": ["frontend developer", "web developer"],
+    "location": "jakarta",
+    "concurrency": 2,
+    "maxPages": 3,
+    "maxJobsPerKeyword": 40,
+    "dryRun": false,
+    "debugTest": 0,
+    "minDelaySeconds": 3,
+    "maxDelaySeconds": 6,
+    "autoKeywords": true
   }
 }

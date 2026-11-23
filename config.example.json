@@ -30,7 +30,8 @@
     "years_of_relevant_experience_v2": "More than 5 years",
     "skill_set_tools": "Expert",
     "skill_set_foreign_language_v2": ["Bahasa Indonesia", "English"],
-    "expected_salary_idr": 7000000
+    "expected_salary_idr": 7000000,
+    "skills": ["PHP", "Laravel", "JavaScript", "TypeScript", "Node.js", "MySQL", "Docker"]
   },
   "intro": {
     "enabled": true

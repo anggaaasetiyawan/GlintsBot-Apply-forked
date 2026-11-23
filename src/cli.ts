@@ -273,6 +273,65 @@ program
     console.log(JSON.stringify(cfg, null, 2));
   });
 
+// ---------- jobstreet ----------
+program
+  .command("jobstreet")
+  .description("Jobstreet auto-apply (puppeteer). Subcommands: login | apply | status")
+  .argument("<action>", "login | apply | status")
+  .option("--dry-run", "reach the submit step but never click submit", false)
+  .option("--no-tui", "kept for parity — jobstreet always logs plainly", false)
+  .action(async (action: string, opts) => {
+    const cfg = loadConfig(program.opts().config as string);
+    const { JobstreetBot } = await import("./jobstreet/index.js");
+    const bot = new JobstreetBot(
+      cfg.jobstreet,
+      cfg.cron.timezone,
+      console.log,
+      cfg.keywordOptions,
+      cfg.filters.includeKeywords,
+      cfg.filters.excludeKeywords,
+      cfg.answers
+    );
+
+    if (action === "login") {
+      await bot.login();
+      return;
+    }
+    if (action === "apply") {
+      // No ora spinner here on purpose: runApply() logs per-job progress through
+      // plain console.log, and an active spinner rewrites the same line, so every
+      // bot line would come out prefixed with the spinner frame.
+      const header = opts.dryRun || cfg.jobstreet.dryRun
+        ? "Jobstreet apply run (dry-run)"
+        : "Jobstreet apply run";
+      console.log(chalk.bold(`${header} — starting…`));
+      try {
+        const n = await bot.runApply(!!opts.dryRun);
+        const verb = opts.dryRun || cfg.jobstreet.dryRun ? "reached submit (dry-run)" : "submitted";
+        console.log(chalk.green(`✔ Done — ${n} application(s) ${verb}.`));
+      } catch (e) {
+        console.log(chalk.red(`✖ ${(e as Error).message}`));
+        process.exitCode = 1;
+      }
+      return;
+    }
+    if (action === "status") {
+      bot.statusTable();
+      const s = ora("Syncing from my-activity…").start();
+      try {
+        await bot.syncStatus();
+        s.succeed("Sync complete.");
+        bot.statusTable();
+      } catch (e) {
+        s.fail((e as Error).message);
+        process.exitCode = 1;
+      }
+      return;
+    }
+    console.error(chalk.red(`Unknown action "${action}" — use login | apply | status.`));
+    process.exitCode = 1;
+  });
+
 program.parseAsync(process.argv).catch((e) => {
   console.error(chalk.red(`error: ${(e as Error).message}`));
   process.exit(1);

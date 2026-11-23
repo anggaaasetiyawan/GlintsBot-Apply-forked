@@ -42,7 +42,10 @@ export interface Config {
     minDelaySeconds: number;
     maxDelaySeconds: number;
   };
-  answers: Record<string, string | string[] | number | boolean>;
+  answers: Record<string, string | string[] | number | boolean> & {
+    /** The CV's technology vocabulary — drives checkbox screening questions. */
+    skills?: string[];
+  };
   intro: {
     /** Send the intro message after each successful apply (mirrors the app). */
     enabled: boolean;
@@ -76,6 +79,43 @@ export interface Config {
     customTokens: string[];
     /** Extra role nouns to ADD to the built-in ROLE_NOUNS set. */
     extraRoleNouns: string[];
+  };
+  jobstreet: {
+    /** Search keywords — one search pass per keyword. */
+    searchKeywords: string[];
+    /** Location slug or display name ("jakarta", "bontang", "remote"). */
+    location: string;
+    /**
+     * Optional override for the daily cap. When omitted (recommended) Jobstreet
+     * follows the shared `limits.maxAppliesPerDay`, so both boards are capped by
+     * the same number from one place in config.json.
+     */
+    limitPerDay?: number;
+    /** Parallel job-detail tabs. 2 is safe, 3+ risks captcha. */
+    concurrency: number;
+    /** Max listing pages per keyword. */
+    maxPages: number;
+    /** Max job links collected per keyword. */
+    maxJobsPerKeyword: number;
+    /** Navigate + fill but never press the final submit. */
+    dryRun: boolean;
+    /** If > 0, stop after N applications (smoke test). */
+    debugTest: number;
+    /** Base delay band between applications, in seconds. */
+    minDelaySeconds: number;
+    maxDelaySeconds: number;
+    /**
+     * Derive `searchKeywords` (and fall back for `location`) from applied-job
+     * history + `filters.includeKeywords` instead of trusting the static list.
+     * Explicit `searchKeywords` still win unless this is `true`.
+     */
+    autoKeywords: boolean;
+    /** Re-derive every N runs (0 = every run). Uses `.glints/jobstreet-keywords.json`. */
+    refreshKeywordsEvery: number;
+    /** Hard cap on auto-derived keywords. */
+    maxAutoKeywords: number;
+    /** Explicit location override; wins over derivation. */
+    locationOverride?: string;
   };
 }
 
@@ -111,6 +151,11 @@ const DEFAULT: Config = {
     years_of_relevant_experience_v2: "More than 5 years",
     skill_set_tools: "Expert",
     skill_set_foreign_language_v2: ["Bahasa Indonesia", "English"],
+    // The CV's technology vocabulary. Jobstreet's /apply/role-requirements
+    // renders required multi-select questions ("Library/framework back end apa
+    // saja yang bisa kamu gunakan?") and only these names are ever ticked.
+    // Populate from your own CV — nothing here is inferred.
+    skills: [] as string[],
   },
   intro: { enabled: true },
   cron: { schedule: "0 */2 * * *", timezone: "Asia/Jakarta" },
@@ -126,6 +171,21 @@ const DEFAULT: Config = {
     customTokens: [],
     extraRoleNouns: [],
   },
+  jobstreet: {
+    searchKeywords: ["frontend developer", "web developer"],
+    location: "jakarta",
+    // No limitPerDay on purpose: the shared limits.maxAppliesPerDay applies.
+    concurrency: 2,
+    maxPages: 3,
+    maxJobsPerKeyword: 40,
+    dryRun: false,
+    debugTest: 0,
+    minDelaySeconds: 3,
+    maxDelaySeconds: 6,
+    autoKeywords: true,
+    refreshKeywordsEvery: 0,
+    maxAutoKeywords: 12,
+  },
 };
 
 export function loadConfig(path = "config.json"): Config {
@@ -136,10 +196,11 @@ export function loadConfig(path = "config.json"): Config {
   } catch (e) {
     if ((e as NodeJS.ErrnoException).code !== "ENOENT") throw e;
   }
+  const limits = { ...DEFAULT.limits, ...(user.limits ?? {}) };
   return {
     feed: { ...DEFAULT.feed, ...(user.feed ?? {}) },
     filters: { ...DEFAULT.filters, ...(user.filters ?? {}) },
-    limits: { ...DEFAULT.limits, ...(user.limits ?? {}) },
+    limits,
     answers: { ...DEFAULT.answers, ...(user.answers ?? {}) },
     intro: { ...DEFAULT.intro, ...(user.intro ?? {}) },
     cron: { ...DEFAULT.cron, ...(user.cron ?? {}) },
@@ -155,6 +216,13 @@ export function loadConfig(path = "config.json"): Config {
         ...(DEFAULT.keywordOptions.extraRoleNouns ?? []),
         ...((user.keywordOptions as any)?.extraRoleNouns ?? []),
       ],
+    },
+    jobstreet: {
+      ...DEFAULT.jobstreet,
+      ...(user.jobstreet ?? {}),
+      // Shared cap: unless jobstreet.limitPerDay is set explicitly in
+      // config.json, Jobstreet obeys the same limits.maxAppliesPerDay as Glints.
+      limitPerDay: user.jobstreet?.limitPerDay ?? limits.maxAppliesPerDay,
     },
   };
 }
